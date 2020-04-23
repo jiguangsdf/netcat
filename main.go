@@ -101,7 +101,7 @@ func init() {
 func usage() {
     fmt.Fprintf(os.Stderr, `netcat version: netcat/1.6.0
 build on: go1.14 darwin/amd64
-netcat <https://netcat.lutai.network>
+netcat <https://github.com/jiguangin/netcat>
 usage: netcat [-l] [-v] [-p port] [-n tcp]
 
 options:

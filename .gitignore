@@ -1,0 +1,16 @@
+# release
+bin/
+
+# mac
+.DS_Store
+
+# Other files and folders
+.settings/
+
+# upload
+
+upload/
+
+# vendor
+
+vendor/
