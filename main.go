@@ -19,7 +19,7 @@ import (
 	"syscall"
 )
 
-const (
+var (
 	// application name
 	Name = ""
 	// application version string
@@ -28,7 +28,7 @@ const (
 	Commit = ""
 	// build tags
 	BuildTags = ""
-	// application
+	// application variable
 	udpNetwork = "udp"
 	udpBufSize = 64 * 1024
 )
