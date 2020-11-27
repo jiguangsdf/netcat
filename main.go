@@ -1,22 +1,33 @@
 package main
 
 import (
-	"log"
-	"net"
-	"io"
-	"os"
-	"strconv"
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
-	"bufio"
-	"syscall"
-	"bytes"
+	"github.com/axgle/mahonia"
+	"io"
 	"io/ioutil"
-	"runtime"
+	"log"
+	"net"
+	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
+	"strconv"
 	"strings"
-	"github.com/axgle/mahonia"
+	"syscall"
+)
+
+var (
+	// application's name
+	Name = ""
+	// application's version string
+	Version = ""
+	// commit
+	Commit = ""
+	// build tags
+	BuildTags = ""
 )
 
 const (
@@ -77,13 +88,13 @@ func (convert *Convert) Read(p []byte) (n int, err error) {
 }
 
 var config struct {
-	Help       bool
-	Verbose    bool
-	Listen 	   bool
-	Port 	   int
-	Network    string
-	Command    bool
-	Host 	   string
+	Help    bool
+	Verbose bool
+	Listen  bool
+	Port    int
+	Network string
+	Command bool
+	Host    string
 }
 
 func init() {
@@ -99,20 +110,25 @@ func init() {
 }
 
 func usage() {
-    fmt.Fprintf(os.Stderr, `netcat version: netcat/1.6.0
-build on: go1.14 darwin/amd64
-netcat <https://github.com/jiguangin/netcat>
+	fmt.Fprintf(os.Stderr, fmt.Sprintf(`name: %s 
+version: %s
+commit: %s
+build_tags: %s
+go: %s
+
 usage: netcat [-l] [-v] [-p port] [-n tcp]
 
 options:
-`)
-    flag.PrintDefaults()
+`, Name, Version, Commit, BuildTags,
+		fmt.Sprintf("go version %s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)),
+	)
+	flag.PrintDefaults()
 }
 
 func listen(network, host string, port int, command bool) {
 	listenAddr := net.JoinHostPort(host, strconv.Itoa(port))
 	listener, err := net.Listen(network, listenAddr)
-	logf("Listening on: %s://%s",network, listenAddr)
+	logf("Listening on: %s://%s", network, listenAddr)
 	if err != nil {
 		logf("Listen failed: %s", err)
 		return
@@ -126,25 +142,25 @@ func listen(network, host string, port int, command bool) {
 	if command {
 		var shell string
 		switch runtime.GOOS {
-	    case "linux":
-	        shell = "/bin/sh"
-	    case "freebsd":
-	        shell = "/bin/csh"
-	    case "windows":
-	    	shell = "cmd.exe"
-	    default:
-	        shell = "/bin/sh"
-	    }
+		case "linux":
+			shell = "/bin/sh"
+		case "freebsd":
+			shell = "/bin/csh"
+		case "windows":
+			shell = "cmd.exe"
+		default:
+			shell = "/bin/sh"
+		}
 		cmd := exec.Command(shell)
 		convert := newConvert(conn)
-		cmd.Stdin  = convert
+		cmd.Stdin = convert
 		cmd.Stdout = convert
 		cmd.Stderr = convert
 		cmd.Run()
 		defer conn.Close()
 		logf("Closed: %s", conn.RemoteAddr())
 	} else {
-		go func(c net.Conn){
+		go func(c net.Conn) {
 			io.Copy(os.Stdout, c)
 			c.Close()
 			logf("Closed: %s", conn.RemoteAddr())
@@ -174,8 +190,8 @@ func listenPacket(network, host string, port int, command bool) {
 		logf("Listen failed: %s", err)
 		return
 	}
-	logf("Listening on: %s://%s",network, listenAddr)
-	defer func(c net.PacketConn){
+	logf("Listening on: %s://%s", network, listenAddr)
+	defer func(c net.PacketConn) {
 		logf("\nClosed udp listen")
 		c.Close()
 		os.Exit(0)
@@ -196,26 +212,26 @@ func dial(network, host string, port int, command bool) {
 		logf("Dail failed: %s", err)
 		return
 	}
-	logf("Dialed host: %s://%s",network, dailAddr)
-	defer func(c net.Conn){
+	logf("Dialed host: %s://%s", network, dailAddr)
+	defer func(c net.Conn) {
 		logf("Closed: %s", dailAddr)
 		c.Close()
 	}(conn)
 	if command {
 		var shell string
 		switch runtime.GOOS {
-	    case "linux":
-	        shell = "/bin/sh"
-	    case "freebsd":
-	        shell = "/bin/csh"
-	    case "windows":
-	    	shell = "cmd.exe"
-	    default:
-	        shell = "/bin/sh"
-	    }
+		case "linux":
+			shell = "/bin/sh"
+		case "freebsd":
+			shell = "/bin/csh"
+		case "windows":
+			shell = "cmd.exe"
+		default:
+			shell = "/bin/sh"
+		}
 		cmd := exec.Command(shell)
 		convert := newConvert(conn)
-		cmd.Stdin  = convert
+		cmd.Stdin = convert
 		cmd.Stdout = convert
 		cmd.Stderr = convert
 		cmd.Run()
@@ -235,8 +251,8 @@ func dial(network, host string, port int, command bool) {
 		} else {
 			// Fixed: windows下 os.Stdin没有"\n"导致命令执行失败
 			input := bufio.NewScanner(os.Stdin)
-			for input.Scan(){
-				io.WriteString(conn, input.Text() + "\n")
+			for input.Scan() {
+				io.WriteString(conn, input.Text()+"\n")
 			}
 		}
 	}
@@ -244,9 +260,9 @@ func dial(network, host string, port int, command bool) {
 
 func main() {
 	if config.Help {
-        flag.Usage()
-        return
-    }
+		flag.Usage()
+		return
+	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {

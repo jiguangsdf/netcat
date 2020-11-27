@@ -1,16 +1,30 @@
-# release
-bin/
-
 # mac
 .DS_Store
 
-# Other files and folders
-.settings/
+# local env files
+.env.local
+.env.*.local
 
-# upload
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-upload/
+# build
+build
+
+# node_moules
+**/node_modules/
+**/.cache
+**/dist
 
 # vendor
+**/vendor
 
-vendor/
+# common
+
+
