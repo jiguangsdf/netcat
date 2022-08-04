@@ -203,21 +203,26 @@ netcat最重要的一个功能就是提供命令执行功能，这在渗透测�
 
 - 正向命令执行
 
-![](images/WX20200317-011030@2x.png)
+![](images/p1@2x.png)
 
 - 反向命令执行
 
-![](images/WX20200317-011240@2x.png)
+![](images/p2@2x.png)
 
 - 文件传输
 
-![](images/WX20200317-011427@2x.png)
+![](images/p3@2x.png)
 
-- 标准输入输出[在线聊天功能]
+- 标准输入输出
 
-![](images/WX20200317-011629@2x.png)
+![](images/p4@2x.png)
 
+#### web静态服务器
+
+使用netacat轻松实现index目录索引，在实际环境用可以用作下载和上传资源使用
+
+![](images/p5.png)
 
 ### 总结
 
-本文使用`Golang`语言实现了简单的`Netcat`功能，文章提及了接口的实现，如：自定义结构体方法用于命令执行结果编码实时转换，以及`io.Copy`等方法的参数查看与具体使用。完整的代码：[netcat - github.com](https://github.com/jiguangin/netcat)
+本文使用`Golang`语言实现了简单的`Netcat`功能，文章提及了接口的实现，如：自定义结构体方法用于命令执行结果编码实时转换，以及`io.Copy`等方法的参数查看与具体使用。完整的代码：[netcat - github.com](https://github.com/jiguangsdf/netcat)

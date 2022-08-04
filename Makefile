@@ -22,11 +22,12 @@ whitespace += $(whitespace)
 comma := ,
 build_tags_comma_sep := $(subst $(whitespace),$(comma),$(build_tags))
 
-NAME=netcat
+UNIX=netcat
+WINDOWS=netcat.exe
 PACKAGENAME=main
 
 ### -X package.name
-ldflags = -X $(PACKAGENAME).Name=$(NAME) \
+ldflags = -X $(PACKAGENAME).Name=$(UNIX) \
 		  -X $(PACKAGENAME).Version=$(VERSION) \
 		  -X $(PACKAGENAME).Commit=$(COMMIT) \
 		  -X $(PACKAGENAME).BuildTags=$(build_tags_comma_sep) \
@@ -40,7 +41,7 @@ BUILD_FLAGS += -gcflags='all=-trimpath=$(GOMODCACHE)' -asmflags='all=-trimpath=$
 # darwin amd64
 build: gofmt clean go.sum
 	mkdir -p $(BUILDDIR)
-	go build -mod=readonly $(BUILD_FLAGS) -o $(BUILDDIR)/$(NAME)
+	go build -mod=readonly $(BUILD_FLAGS) -o $(BUILDDIR)/$(UNIX)
 
 # linux amd64
 build-linux:
@@ -53,7 +54,7 @@ build-linux-arm64:
 # windows
 build-windows: gofmt clean go.sum
 	mkdir -p $(BUILDDIR)
-	GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o $(BUILDDIR)/$(NAME)
+	GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o $(BUILDDIR)/$(WINDOWS)
 
 install: go.sum
 	go install -mod=readonly -v $(BUILD_FLAGS)

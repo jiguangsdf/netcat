@@ -5,18 +5,19 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/axgle/mahonia"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
 	"strconv"
-	"strings"
 	"syscall"
+
+	"github.com/axgle/mahonia"
 )
 
 var (
@@ -30,6 +31,7 @@ var (
 	BuildTags = ""
 	// application variable
 	udpNetwork = "udp"
+	tcpNetwork = "tcp"
 	udpBufSize = 64 * 1024
 )
 
@@ -91,6 +93,8 @@ var config struct {
 	Listen  bool
 	Port    int
 	Network string
+	Web     bool
+	Path    string
 	Command bool
 	Host    string
 }
@@ -98,9 +102,11 @@ var config struct {
 func init() {
 	flag.IntVar(&config.Port, "p", 4000, "host port to connect or listen")
 	flag.BoolVar(&config.Help, "help", false, "print this help")
-	flag.BoolVar(&config.Verbose, "v", false, "verbose mode")
+	flag.BoolVar(&config.Verbose, "v", true, "verbose mode")
 	flag.BoolVar(&config.Listen, "l", false, "listen mode")
 	flag.BoolVar(&config.Command, "e", false, "shell mode")
+	flag.BoolVar(&config.Web, "web", false, "web static server")
+	flag.StringVar(&config.Path, "path", "public", "web static path")
 	flag.StringVar(&config.Network, "n", "tcp", "network protocol")
 	flag.StringVar(&config.Host, "h", "0.0.0.0", "host addr to connect or listen")
 	flag.Usage = usage
@@ -256,6 +262,16 @@ func dial(network, host string, port int, command bool) {
 	}
 }
 
+func listenWeb(host string, port int, path string) {
+	listenAddr := net.JoinHostPort(host, strconv.Itoa(port))
+	logf("Listening web on: %s, path: %s", listenAddr, path)
+	err := http.ListenAndServe(listenAddr,
+		http.FileServer(http.Dir(path)))
+	if err != nil {
+		logf("Listen web failed: %v", err)
+	}
+}
+
 func main() {
 	if config.Help {
 		flag.Usage()
@@ -268,12 +284,25 @@ func main() {
 		logf("Exited")
 		os.Exit(0)
 	}()
-	if config.Listen {
-		if strings.HasPrefix(config.Network, udpNetwork) {
-			listenPacket(config.Network, config.Host, config.Port, config.Command)
-		}
-		listen(config.Network, config.Host, config.Port, config.Command)
+
+	// Web
+	if config.Web {
+		listenWeb(config.Host, config.Port, config.Path)
 		return
 	}
-	dial(config.Network, config.Host, config.Port, config.Command)
+
+	// Listen
+	if config.Listen {
+		switch config.Network {
+		case udpNetwork:
+			listenPacket(config.Network, config.Host, config.Port, config.Command)
+		case tcpNetwork:
+			listen(config.Network, config.Host, config.Port, config.Command)
+		default:
+			panic("no target network protocol")
+		}
+		// Dial
+	} else {
+		dial(config.Network, config.Host, config.Port, config.Command)
+	}
 }
