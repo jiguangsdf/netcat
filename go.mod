@@ -1,7 +1,7 @@
 module github.com/jiguangsdf/netcat
 
-go 1.18
+go 1.23.0
 
-require github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394
+toolchain go1.23.2
 
-require github.com/creack/pty v1.1.24 // indirect
+require golang.org/x/text v0.27.0

@@ -25,7 +25,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/axgle/mahonia"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 // 常量定义
@@ -223,12 +224,13 @@ func newConvert(c net.Conn) *Convert {
 }
 
 func (convert *Convert) translate(p []byte, encoding string) []byte {
-	srcDecoder := mahonia.NewDecoder(encoding)
-	if srcDecoder == nil {
-		return p // 如果解码器创建失败，返回原始数据
+	// 使用 Go 标准库进行 GBK 到 UTF-8 的转换
+	reader := transform.NewReader(strings.NewReader(string(p)), simplifiedchinese.GBK.NewDecoder())
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		return p // 如果转换失败，返回原始数据
 	}
-	_, resBytes, _ := srcDecoder.Translate(p, true)
-	return resBytes
+	return result
 }
 
 func (convert *Convert) Write(p []byte) (n int, err error) {
@@ -237,6 +239,7 @@ func (convert *Convert) Write(p []byte) (n int, err error) {
 
 	switch runtime.GOOS {
 	case "windows":
+		// 在 Windows 下进行 GBK 编码转换
 		resBytes := convert.translate(p, "gbk")
 		m, err := convert.conn.Write(resBytes)
 		if m != len(resBytes) {

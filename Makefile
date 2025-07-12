@@ -3,7 +3,7 @@
 # 变量定义
 BINARY_NAME=netcat
 MAIN_FILE=main.go
-VERSION?=1.0.0
+VERSION?=2.0.1
 COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 
