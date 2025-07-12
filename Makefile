@@ -82,6 +82,12 @@ example: build
 	@echo "In another terminal, run: ./netcat localhost 8080"
 	./netcat -l -p 8080
 
+# SSL测试
+.PHONY: test-ssl
+test-ssl: build
+	@echo "Running SSL tests..."
+	./test_ssl.sh
+
 # 帮助
 .PHONY: help
 help:
@@ -94,6 +100,7 @@ help:
 	@echo "  cross-build - Build for multiple platforms"
 	@echo "  deps        - Install dependencies"
 	@echo "  example     - Run example server"
+	@echo "  test-ssl    - Run SSL tests"
 	@echo "  help        - Show this help"
 
 # 开发模式

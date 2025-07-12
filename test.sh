@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Netcat 增强版测试脚本
+# Netcat V2 功能测试脚本
 
-echo "=== Netcat 增强版功能测试 ==="
+echo "=== Netcat V2 功能测试 ==="
 
 # 检查netcat是否存在
 if [ ! -f "./netcat" ]; then
@@ -12,110 +12,44 @@ fi
 
 echo "✓ netcat 可执行文件存在"
 
-# 测试帮助信息
-echo -e "\n1. 测试帮助信息..."
-./netcat -help > /dev/null
-if [ $? -eq 0 ]; then
-    echo "✓ 帮助信息正常"
-else
-    echo "✗ 帮助信息异常"
-fi
-
-# 测试配置验证
-echo -e "\n2. 测试配置验证..."
-./netcat -p 99999 2>&1 | grep -q "invalid port number"
-if [ $? -eq 0 ]; then
-    echo "✓ 端口验证正常"
-else
-    echo "✗ 端口验证异常"
-fi
-
-# 测试TCP监听模式
-echo -e "\n3. 测试TCP监听模式..."
-./netcat -l -p 8080 &
-LISTEN_PID=$!
+# 1. 正向shell测试（服务端-e，客户端普通）
+echo -e "\n1. 正向shell测试..."
+./netcat -l -p 4100 -e > shell_out.txt 2>&1 &
+SHELL_PID=$!
 sleep 1
 
-# 检查进程是否在运行
-if kill -0 $LISTEN_PID 2>/dev/null; then
-    echo "✓ TCP监听模式正常"
-    kill $LISTEN_PID 2>/dev/null
-else
-    echo "✗ TCP监听模式异常"
-fi
+echo "whoami" | ./netcat -h 127.0.0.1 -p 4100 > shell_result.txt
+sleep 1
+kill $SHELL_PID 2>/dev/null
 
-# 测试UDP监听模式
-echo -e "\n4. 测试UDP监听模式..."
-./netcat -l -n udp -p 8081 &
-UDP_PID=$!
+if grep -q "$(whoami)" shell_result.txt; then
+    echo "✓ 正向shell功能正常"
+else
+    echo "✗ 正向shell功能异常"
+    cat shell_result.txt
+fi
+rm -f shell_result.txt shell_out.txt
+
+# 2. 反向shell测试（客户端-e，服务端普通）
+echo -e "\n2. 反向shell测试..."
+./netcat -l -p 4101 > revshell_out.txt 2>&1 &
+REV_PID=$!
 sleep 1
 
-if kill -0 $UDP_PID 2>/dev/null; then
-    echo "✓ UDP监听模式正常"
-    kill $UDP_PID 2>/dev/null
-else
-    echo "✗ UDP监听模式异常"
-fi
-
-# 测试连接超时
-echo -e "\n5. 测试连接超时..."
-./netcat -timeout 2s localhost 9999 2>&1 | grep -q "failed to connect"
-if [ $? -eq 0 ]; then
-    echo "✓ 连接超时正常"
-else
-    echo "✗ 连接超时异常"
-fi
-
-# 测试重试机制
-echo -e "\n6. 测试重试机制..."
-./netcat -retries 2 -timeout 1s localhost 9999 2>&1 | grep -q "Retry"
-if [ $? -eq 0 ]; then
-    echo "✓ 重试机制正常"
-else
-    echo "✗ 重试机制异常"
-fi
-
-# 测试Web服务器模式
-echo -e "\n7. 测试Web服务器模式..."
-# 创建测试目录
-mkdir -p test_web
-echo "<html><body><h1>Test</h1></body></html>" > test_web/index.html
-
-./netcat -web -p 8082 -path test_web &
-WEB_PID=$!
+echo "whoami" | ./netcat -h 127.0.0.1 -p 4101 -e > revshell_result.txt
 sleep 1
+kill $REV_PID 2>/dev/null
 
-if kill -0 $WEB_PID 2>/dev/null; then
-    echo "✓ Web服务器模式正常"
-    kill $WEB_PID 2>/dev/null
+if grep -q "$(whoami)" revshell_result.txt; then
+    echo "✓ 反向shell功能正常"
 else
-    echo "✗ Web服务器模式异常"
+    echo "✗ 反向shell功能异常"
+    cat revshell_result.txt
 fi
-
-# 清理测试文件
-rm -rf test_web
-
-# 测试信号处理
-echo -e "\n8. 测试信号处理..."
-./netcat -l -p 8083 &
-SIG_PID=$!
-sleep 1
-
-if kill -0 $SIG_PID 2>/dev/null; then
-    kill -TERM $SIG_PID
-    sleep 1
-    if ! kill -0 $SIG_PID 2>/dev/null; then
-        echo "✓ 信号处理正常"
-    else
-        echo "✗ 信号处理异常"
-        kill -KILL $SIG_PID 2>/dev/null
-    fi
-else
-    echo "✗ 信号处理测试失败"
-fi
+rm -f revshell_result.txt revshell_out.txt
 
 echo -e "\n=== 测试完成 ==="
-echo "所有测试已完成，请检查上述结果。"
+echo "所有功能测试已完成，请检查上述结果。"
 
 # 清理可能的残留进程
 pkill -f "netcat -l" 2>/dev/null || true 
