@@ -1,228 +1,274 @@
-### Netcat介绍
+# Netcat V2
 
-`Netcat` 号称 TCP/IP 的瑞士军刀并非浪得虚名，以体积小（可执行 200KB）功能灵活而著称，在各大发行版中都默认安装，你可以用它来做很多网络相关的工作，熟练使用它可以不依靠其他工具做一些很有用的事情。
+一个功能增强的网络工具，基于经典的netcat（V1），本项目为V2版本，增加了错误处理、超时控制、重试机制、SSL支持等功能。
 
-最初作者是叫做“霍比特人”的网友 Hobbit <hobbit@avian.org> 于 1995 年在 UNIX 上以源代码的形式发布，Posix 版本的 netcat 主要有 GNU 版本的 netcat 和 OpenBSD 的 netcat 两者都可以在 debian/ubuntu 下面安装，但是 Windows 下面只有 GNU 版本的 port。
+> **说明：**
+> - **V1**：原始经典netcat实现，功能基础，适合简单场景。
+> - **V2**：本项目，增强版，适合生产和复杂调试场景。
 
-### 在Go中创建Netcat应用
+---
 
-`Netcat`在安全测试尤其是渗透测试过程中经常用到，比如在内网中需要上传下载文件，命令执行等功能都可能用到。
-基于Go语言内置的`net`库编写`netcat`应用，需要实现的功能点有：
+## 主要改进（V2）
 
-- 发起TCP/UDP连接
-- 监听TCP端口
-- 监听UDP端口
-- 处理标准输入输出流
-- 命令执行功能
-- 字符编码转换[windows命令执行结果因为GBK编码问题可能会出现乱码]
+### 🛡️ 健壮性增强
+- **完善的错误处理**: 所有网络操作都有适当的错误处理
+- **资源管理**: 正确关闭连接和监听器，避免资源泄漏
+- **并发安全**: 使用互斥锁保护共享资源
+- **配置验证**: 启动前验证所有配置参数
 
-#### 发起TCP/UDP连接
+### ⚡ 新功能
+- **超时控制**: 可配置连接超时时间
+- **重试机制**: 连接失败时自动重试
+- **SSL/TLS支持**: 支持加密连接
+- **Keep-Alive**: TCP连接保活机制
+- **优雅关闭**: 支持信号处理，优雅退出
+- **完整UDP支持**: UDP监听持续运行，不再只处理一个包
 
-使用标准库的`net.Dial`方法根据传入参数发起一个`TCP/UDP`连接请求：
+### 🔧 配置选项
+- `-timeout`: 连接超时时间 (默认30秒)
+- `-retries`: 重试次数 (默认3次)
+- `-ssl`: 启用SSL/TLS加密
+- `-keepalive`: 启用TCP保活 (默认启用)
+- `-buffer`: 数据传输缓冲区大小 (默认4096字节)
 
-```
-//@param [string] [host] - 连接对方主机的IP地址
-//@param [int] [port] - 连接对方的主机的端口
-//@param [net.Conn] [conn] - 根据建立的conn连接管道，就可以向对方发送数据与接受对方数据，
-//比如文件传输，文件下载，命令反弹，标准输入/输出流传送等
-dailAddr := net.JoinHostPort(host, strconv.Itoa(port))
-conn, err := net.Dial(network, dailAddr)
-if err != nil {
-    logf("Dail failed: %s", err)
-    return
-}
-logf("Dialed host: %s://%s",network, dailAddr)
-defer func(c net.Conn){
-    logf("Closed: %s", dailAddr)
-	c.Close()
-}(conn)
-```
+---
 
-#### 监听TCP/UDP端口
-然后使用标准库的`net.Listen`方法根据传入参数监听`TCP/UDP`端口：
+## 快速上手（V2）
 
-```
-//@param [string] [host] - 连接对方主机的IP地址
-//@param [int] [port] - 连接对方的主机的端口
-//@param [net.Conn] [conn] - 根据建立的conn连接管道，就可以向对方发送数据与接受对方数据，
-//比如文件传输，文件下载，命令反弹，标准输入/输出流传送等
-listenAddr := net.JoinHostPort(host, strconv.Itoa(port))
-listener, err := net.Listen(network, listenAddr)
-logf("Listening on: %s://%s",network, listenAddr)
-if err != nil {
-	logf("Listen failed: %s", err)
-	return
-}
-conn, err := listener.Accept()
-if err != nil {
-	logf("Accept failed: %s", err)
-	return
-}
+### 基本用法
+
+```bash
+# TCP监听模式
+./netcat -l -p 8080
+
+# TCP连接模式
+./netcat localhost 8080
+
+# UDP监听模式
+./netcat -l -n udp -p 8080
+
+# UDP连接模式
+./netcat -n udp localhost 8080
 ```
 
-#### 处理标准输入输出流
+### 高级功能
 
-标准输入输出流在传输文件，命令执行过程中均会涉及到，可以使用标准库`fmt.Fprintf`, `io.Copy`两个函数处理，它们的函数签名如下：
+```bash
+# 带超时和重试的连接
+./netcat -timeout 10s -retries 5 localhost 8080
 
-```
-// io.Copy可以用在把TCP/UDP连接传输的数据流写入文件，或者定位到标准输出[os.Stdout]中，其中参数为两个接口，可以使用go doc io.Writer/io.Reader查看，只要实现
-// Writer, Read两个方法就可以
-func Copy(dst Writer, src Reader) (written int64, err error)
+# SSL加密连接
+./netcat -ssl localhost 8443
 
-io.Copy(os.Stdout, conn)
-io.Copy(conn, os.Stdin)
+# 命令模式 (反向shell)
+./netcat -l -e -p 8080
 
-// fmt.Fprintf可以用在
-func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error)
+# Web静态文件服务器
+./netcat -web -p 8080 -path ./public
 
-fmt.Fprintf(os.Stdout, string(buf))
-```
-
-#### 命令执行功能
-
-命令执行功能根据`runtime.GOOS`选择相应的平台，然后使用内置库`exec.Command`实现命令执行
-
-```
-switch runtime.GOOS {
-case "linux":
-    shell = "/bin/sh"
-case "freebsd":
-    shell = "/bin/csh"
-case "windows":
-	shell = "cmd.exe"
-default:
-    shell = "/bin/sh"
-}
-cmd := exec.Command(shell)
-convert := newConvert(conn)
-cmd.Stdin  = convert
-cmd.Stdout = convert
-cmd.Stderr = convert
-cmd.Run()
+# 自定义缓冲区大小
+./netcat -buffer 8192 localhost 8080
 ```
 
-命令执行的结果可以直接输入到发起连接到`TCP/UDP`流中,也就是连接到`conn`中，具体为什么能这样?,可以看看`go doc exec.Command` 返回的结构体类型为`*exec.Cmd`,通过查看，该结构体的`Stdin`, `Stdout`, `Stderr`,类型分别为`io.Reader`, `io.Writer`，刚好`conn net.Conn`实现了这两个接口的函数签名，所以命令执行的结果就可以直接进去`TCP/UDP`连接流
+---
+
+## 命令行选项（V2）
 
 ```
-type Cmd struct {
-	
-	......
+name: netcat 
+version: 
+commit: 
+build_tags: 
+go: go version go1.21.0 darwin/amd64
 
-	Stdin io.Reader
+usage: netcat [options] [host] [port]
 
-	// Stdout and Stderr specify the process's standard output and error.
-	//
-	// If either is nil, Run connects the corresponding file descriptor
-	// to the null device (os.DevNull).
-	//
-	// If either is an *os.File, the corresponding output from the process
-	// is connected directly to that file.
-	//
-	// Otherwise, during the execution of the command a separate goroutine
-	// reads from the process over a pipe and delivers that data to the
-	// corresponding Writer. In this case, Wait does not complete until the
-	// goroutine reaches EOF or encounters an error.
-	//
-	// If Stdout and Stderr are the same writer, and have a type that can
-	// be compared with ==, at most one goroutine at a time will call Write.
-	Stdout io.Writer
-	Stderr io.Writer
-
-	......
-}
+options:
+  -p int
+        host port to connect or listen (default 4000)
+  -help
+        print this help
+  -v    verbose mode (default true)
+  -l    listen mode
+  -e    shell mode
+  -web  web static server
+  -path string
+        web static path (default "public")
+  -n string
+        network protocol (default "tcp")
+  -h string
+        host addr to connect or listen (default "0.0.0.0")
+  -timeout duration
+        connection timeout (default 30s)
+  -retries int
+        connection retry attempts (default 3)
+  -ssl  use SSL/TLS
+  -keepalive
+        enable keep-alive (default true)
+  -buffer int
+        buffer size for data transfer (default 4096)
 ```
 
+---
 
+## 场景演示与截图（V2）
 
-#### 字符编码转换
-
-涉及到windows命令执行结果时，因为windows自身编码问题和Go语言的标准编码`UTF-8`存在差异，所以在windows下执行的结果可能会乱码，这里可以使用第三方库`github.com/axgle/mahonia`进行编码转换，需要注意的是,由于需要在命令执行结果中实时实现编码转换，所以需要重写`conn`连接流，方法很简单，只要实现了`io.Reader`, `io.Writer`两个接口的函数签名，然后就可以直接赋值给命令执行流：`cmd.Stdin`, `cmd.Stdout`,`cmd.Stderr`
-
-```
-cmd := exec.Command(shell)
-convert := newConvert(conn)
-cmd.Stdin  = convert
-cmd.Stdout = convert
-cmd.Stderr = convert
-cmd.Run()
-```
-
-具体实现方法如下：
-
-```
-type Convert struct {
-	conn net.Conn
-}
-
-func newConvert(c net.Conn) *Convert {
-	convert := new(Convert)
-	convert.conn = c
-	return convert
-}
-
-func (convert *Convert) translate(p []byte, encoding string) []byte {
-	srcDecoder := mahonia.NewDecoder(encoding)
-	_, resBytes, _ := srcDecoder.Translate(p, true)
-	return resBytes
-}
-
-func (convert *Convert) Write(p []byte) (n int, err error) {
-	switch runtime.GOOS {
-	case "windows":
-		resBytes := convert.translate(p, "gbk")
-		m, err := convert.conn.Write(resBytes)
-		if m != len(resBytes) {
-			return m, err
-		}
-		return len(p), err
-	default:
-		return convert.conn.Write(p)
-	}
-}
-
-func (convert *Convert) Read(p []byte) (n int, err error) {
-	// m, err := convert.conn.Read(p)
-	// switch runtime.GOOS {
-	// case "windows":
-	// 	p = convert.Translate(p[:m], "utf-8")
-	// 	return len(p), err
-	// default:
-	// 	return m, err
-	// }
-	return convert.conn.Read(p)
-}
-```
-
-### 应用
-
-经过以上几步，大致实现了`Netcat`应用的骨架。下面可以进行应用测试。
-
-#### 命令执行
-
-netcat最重要的一个功能就是提供命令执行功能，这在渗透测试过程中经常用到，具体分为`正向Shell`:目标服务器具备外网IP, 可以直接连接进行命令执行, `反向Shell`:目标服务器在内网中，需要反向连接vps控制台服务器
-
-- 正向命令执行
-
+### 1. 正向命令执行
 ![](images/p1@2x.png)
 
-- 反向命令执行
-
+### 2. 反向命令执行
 ![](images/p2@2x.png)
 
-- 文件传输
-
+### 3. 文件传输
 ![](images/p3@2x.png)
 
-- 标准输入输出
-
+### 4. 标准输入输出
 ![](images/p4@2x.png)
 
-#### web静态服务器
-
-使用netacat轻松实现index目录索引，在实际环境用可以用作下载和上传资源使用
-
+### 5. Web静态服务器
 ![](images/p5.png)
 
-### 总结
+---
 
-本文使用`Golang`语言实现了简单的`Netcat`功能，文章提及了接口的实现，如：自定义结构体方法用于命令执行结果编码实时转换，以及`io.Copy`等方法的参数查看与具体使用。完整的代码：[netcat - github.com](https://github.com/jiguangsdf/netcat)
+## 功能特性（V2）
+
+### 1. 网络协议支持
+- **TCP**: 完整的TCP客户端/服务器功能
+- **UDP**: 完整的UDP客户端/服务器功能
+- **SSL/TLS**: TCP连接支持加密传输
+
+### 2. 监听模式
+- 支持多客户端连接
+- 优雅关闭处理
+- 信号处理 (Ctrl+C)
+- 连接日志记录
+
+### 3. 连接模式
+- 自动重试机制
+- 超时控制
+- 连接保活
+- 错误恢复
+
+### 4. 数据传输
+- 双向数据传输
+- 缓冲区优化
+- 字符编码处理 (Windows GBK支持)
+- 交互式和非交互式模式
+
+### 5. 命令模式
+- 反向shell功能
+- 跨平台shell支持
+- 命令执行超时控制
+
+### 6. Web服务器
+- 静态文件服务
+- HTTP请求日志
+- 优雅关闭
+
+---
+
+## 错误处理（V2）
+
+### 网络错误
+- 连接失败自动重试
+- 超时处理
+- 连接中断恢复
+
+### 系统错误
+- 信号处理
+- 资源清理
+- 优雅退出
+
+### 配置错误
+- 参数验证
+- 端口范围检查
+- 协议支持检查
+
+---
+
+## 性能优化（V2）
+
+### 内存管理
+- 固定大小缓冲区
+- 及时释放资源
+- 避免内存泄漏
+
+### 网络优化
+- TCP保活机制
+- 连接复用
+- 缓冲区大小可配置
+
+### 并发处理
+- 多客户端支持
+- 线程安全
+- 资源竞争保护
+
+---
+
+## 安全特性（V2）
+
+### SSL/TLS支持
+- 加密传输
+- 证书验证 (可配置)
+- 安全连接
+
+### 访问控制
+- 连接日志
+- 错误日志
+- 调试信息
+
+---
+
+## 常见使用场景
+
+### 网络调试
+```bash
+# 测试端口连通性
+./netcat -timeout 5s localhost 80
+
+# 监听端口查看连接
+./netcat -l -p 8080
+```
+
+### 文件传输
+```bash
+# 发送文件
+cat file.txt | ./netcat localhost 8080
+
+# 接收文件
+./netcat -l -p 8080 > received.txt
+```
+
+### 反向Shell
+```bash
+# 服务器端
+./netcat -l -e -p 8080
+
+# 客户端连接
+./netcat localhost 8080
+```
+
+### Web服务
+```bash
+# 启动静态文件服务器
+./netcat -web -p 8080 -path ./public
+```
+
+---
+
+## 构建
+
+```bash
+# 编译
+go build -o netcat main.go
+
+# 交叉编译
+GOOS=linux GOARCH=amd64 go build -o netcat-linux main.go
+GOOS=windows GOARCH=amd64 go build -o netcat.exe main.go
+```
+
+---
+
+## 许可证
+
+MIT License
