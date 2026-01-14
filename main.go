@@ -88,6 +88,7 @@ func init() {
 // 日志函数
 func logf(f string, v ...interface{}) {
 	if config.Verbose {
+		// 统一英文提示
 		logger.Output(2, fmt.Sprintf(f, v...))
 	}
 }
@@ -135,15 +136,15 @@ func validateParameters() {
 	// 参数互斥校验：两端不能同时加 -e
 	if config.Command {
 		if config.Listen {
-			logf("[警告] 服务端已开启 -e（正向shell），请确保客户端不要同时加 -e，否则会错乱！")
+			logf("[Warning] Server started with -e (shell mode), make sure client does NOT use -e at the same time, or it will be messed up")
 		} else {
-			logf("[警告] 客户端已开启 -e（反向shell），请确保服务端不要同时加 -e，否则会错乱！")
+			logf("[Warning] Client started with -e (reverse shell), make sure server does NOT use -e at the same time, or it will be messed up")
 		}
 	}
 
 	// UDP 不支持反向 shell（客户端加 -e）
 	if config.Network == "udp" && !config.Listen && config.Command {
-		fmt.Fprintln(os.Stderr, "[错误] UDP 协议不支持反向 shell（客户端加 -e），请用 TCP 或服务端加 -e！")
+		fmt.Fprintln(os.Stderr, "[Error] UDP protocol does NOT support reverse shell (client with -e), please use TCP or server with -e")
 		os.Exit(1)
 	}
 }
